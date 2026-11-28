@@ -1,0 +1,8 @@
+[
+  {"node_id":"001","node_type":"MULTIROTOR","capabilities":["COMM","VISION","RADAR"],"battery":0.95,"position":[0,0]},
+  {"node_id":"002","node_type":"MULTIROTOR","capabilities":["COMM","VISION"],"battery":0.90,"position":[10,0]},
+  {"node_id":"003","node_type":"MULTIROTOR","capabilities":["COMM","RADAR"],"battery":0.85,"position":[20,0]},
+  {"node_id":"004","node_type":"MULTIROTOR","capabilities":["COMM"],"battery":0.80,"position":[30,0]},
+  {"node_id":"005","node_type":"FIXED_WING","capabilities":["COMM","RELAY"],"battery":0.90,"position":[40,0]},
+  {"node_id":"006","node_type":"GROUND","capabilities":["COMPUTE","STORAGE","MONITOR"],"battery":1.0,"position":[50,0]}
+]
