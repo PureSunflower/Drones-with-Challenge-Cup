@@ -15,6 +15,32 @@ SCENARIOS = {
 }
 
 
+def scenario_steps(name: str, sim: Simulation):
+    yield 2
+    if name in ("partition", "recovery"):
+        sim.partition({"001", "002", "003"})
+    if name == "competition":
+        sim.set_link("001", "002", False)
+    sim.publish("006", "survey", (0, 0), frozenset({"COMM"}))
+    yield 7
+    if name == "competition":
+        sim.set_link("001", "002", True)
+    if name in ("single-outage", "double-outage"):
+        sim.power("001", False)
+        if name == "double-outage":
+            sim.power("002", False)
+        yield 16
+        sim.power("001", True)
+        if name == "double-outage":
+            sim.power("002", True)
+        yield 3
+    elif name == "recovery":
+        yield 8
+        sim.heal()
+        yield 13
+    else:
+        yield 4
+
 def run_scenario(name: str, record, seed: int,
                  network: NetworkSettings | None = None) -> dict:
     settings = Settings(seed=seed)
@@ -23,30 +49,8 @@ def run_scenario(name: str, record, seed: int,
     from dataclasses import asdict
     record(0, "scenario_started", "SIMULATOR",
            dict(name=name, settings=asdict(settings), network=asdict(network), origin="SIMULATION"))
-    sim.advance(2)
-    if name in ("partition", "recovery"):
-        sim.partition({"001", "002", "003"})
-    if name == "competition":
-        sim.set_link("001", "002", False)
-    sim.publish("006", "survey", (0, 0), frozenset({"COMM"}))
-    sim.advance(7)
-    if name == "competition":
-        sim.set_link("001", "002", True)
-    if name in ("single-outage", "double-outage"):
-        sim.power("001", False)
-        if name == "double-outage":
-            sim.power("002", False)
-        sim.advance(16)
-        sim.power("001", True)
-        if name == "double-outage":
-            sim.power("002", True)
-        sim.advance(3)
-    elif name == "recovery":
-        sim.advance(8)
-        sim.heal()
-        sim.advance(13)
-    else:
-        sim.advance(4)
+    for seconds in scenario_steps(name, sim):
+        sim.advance(seconds)
     result = {
         "origin": "SIMULATION",
         "scenario": name,

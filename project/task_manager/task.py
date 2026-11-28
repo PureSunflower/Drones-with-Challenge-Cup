@@ -12,6 +12,8 @@ class TaskStatus(StrEnum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     REASSIGNING = "REASSIGNING"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
 
 
 @dataclass(frozen=True)
@@ -22,11 +24,16 @@ class Task:
     required: frozenset[str]
     preferred: frozenset[str]
     starts_at: float
+    task_type: str = "协同任务"
+    priority: int = 3
+    deadline: float | None = None
+    task_description: str = ""
 
     def payload(self) -> dict:
         return dict(task_id=self.task_id, publisher=self.publisher, position=list(self.position),
                     required=sorted(self.required), preferred=sorted(self.preferred),
-                    starts_at=self.starts_at)
+                    starts_at=self.starts_at, task_type=self.task_type, priority=self.priority,
+                    deadline=self.deadline, task_description=self.task_description)
 
     @classmethod
     def parse(cls, data: dict) -> "Task":
@@ -39,7 +46,16 @@ class Task:
                            for group in (req, pref))
                 or not finite(start) or start < 0):
             raise ValueError("Invalid task definition")
-        return cls(task_id, publisher, tuple(pos), frozenset(req), frozenset(pref), start)
+        kind = data.get("task_type", "协同任务")
+        priority = data.get("priority", 3)
+        deadline = data.get("deadline")
+        description = data.get("task_description", "")
+        if (not isinstance(kind, str) or not kind.strip() or type(priority) is not int
+                or not 1 <= priority <= 5 or not isinstance(description, str)
+                or (deadline is not None and (not finite(deadline) or deadline <= start))):
+            raise ValueError("Invalid task metadata")
+        return cls(task_id, publisher, tuple(pos), frozenset(req), frozenset(pref),
+                   start, kind, priority, deadline, description)
 
 
 @dataclass

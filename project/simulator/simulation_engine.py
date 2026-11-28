@@ -49,11 +49,24 @@ class Simulation:
             self.step_number += 1
 
     def publish(self, publisher: str, task_id: str, position: tuple[float, float],
-                required: frozenset[str], preferred: frozenset[str] = frozenset()) -> None:
+                required: frozenset[str], preferred: frozenset[str] = frozenset(), *,
+                task_type: str = "协同任务", priority: int = 3, deadline: float | None = None,
+                task_description: str = "") -> None:
         if publisher in self.network.down:
             raise ValueError("Publisher is offline")
-        task = Task.parse(Task(task_id, publisher, position, required, preferred, self.now).payload())
+        task = Task.parse(Task(task_id, publisher, position, required, preferred, self.now,
+                               task_type, priority, deadline, task_description).payload())
         self.nodes[publisher].publish(task, self.now)
+
+    def cancel(self, publisher: str, task_id: str) -> None:
+        if publisher in self.network.down:
+            raise ValueError("Publisher is offline")
+        self.nodes[publisher].tasks.cancel(task_id, self.now)
+
+    def configure_network(self, settings: NetworkSettings) -> None:
+        from dataclasses import asdict
+        self.network.settings = settings
+        self.record(self.now, "network_configured", "NETWORK", asdict(settings))
 
     def power(self, node_id: str, online: bool) -> None:
         node = self.nodes[node_id]

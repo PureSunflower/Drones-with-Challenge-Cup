@@ -1,0 +1,5 @@
+{
+  "STM32F407": {"port": null, "baudrate": null, "bytesize": null, "parity": null, "stopbits": null, "timeout": null, "frame_format": null, "verification": null},
+  "E22-400T30D": {"uart": null, "mode": null, "wiring": null, "air_settings": null},
+  "E34-2G4D27D": {"uart": null, "mode": null, "wiring": null, "air_settings": null}
+}

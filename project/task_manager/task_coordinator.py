@@ -34,6 +34,20 @@ class TaskCoordinator:
                         outcome_unknown=view.outcome_unknown))
             view.status = status
 
+    def cancel(self, task_id: str, now: float) -> None:
+        view = self.views[task_id]
+        if view.task.publisher != self.node.node_id or view.result is not None:
+            raise ValueError("Only the publisher can cancel an unfinished task")
+        self.apply_cancellation(view, now)
+        self.advertise(view, now)
+
+    def apply_cancellation(self, view: TaskView, now: float) -> None:
+        if view.status != Status.CANCELLED:
+            view.result = Status.CANCELLED
+            view.owner = None
+            view.outcome_unknown = False
+            self.transition(view, Status.CANCELLED, now)
+
     def send(self, kind: Kind, task: Task, epoch: int, now: float, **fields) -> None:
         self.node.send(kind, now, dict(task_id=task.task_id, epoch=epoch, **fields))
 
@@ -45,7 +59,12 @@ class TaskCoordinator:
                 msg.msg_type == Kind.TASK_ANNOUNCE and msg.src != task.publisher
             ):
                 raise ValueError("Invalid task publisher")
+            cancelled = data.get("cancelled", False)
+            if type(cancelled) is not bool or (cancelled and msg.src != task.publisher):
+                raise ValueError("Invalid cancellation authority")
             self.register(task, now)
+            if cancelled:
+                self.apply_cancellation(self.views[task.task_id], now)
             return
         task_id, epoch = data.get("task_id"), data.get("epoch")
         if not isinstance(task_id, str) or type(epoch) is not int or epoch < 0:
@@ -81,7 +100,8 @@ class TaskCoordinator:
         votes = view.rounds.get(epoch)
         completion = (epoch, at, owner, result)
         execution_start = start + self.settings.bid_window + self.settings.claim_window
-        if (isinstance(owner, str) and owner in self.members
+        if (view.status != Status.CANCELLED and (view.task.deadline is None or at < view.task.deadline)
+                and isinstance(owner, str) and owner in self.members
                 and (view.completion is None or completion < view.completion)
                 and execution_start <= at < start + self.settings.lease_period and at <= now
                 and votes and certified_owner(votes.votes, len(self.members)) == owner):
@@ -93,7 +113,8 @@ class TaskCoordinator:
     def finish(self, task_id: str, now: float, success: bool = True) -> None:
         view = self.views[task_id]
         if (view.status != Status.EXECUTING or view.owner != self.node.node_id
-                or view.epoch != epoch_at(view.task, now, self.settings)):
+                or view.epoch != epoch_at(view.task, now, self.settings)
+                or (view.task.deadline is not None and now >= view.task.deadline)):
             raise ValueError("An active lease is required to report an outcome")
         result = "COMPLETED" if success else "FAILED"
         self.accept_result(view, view.epoch, self.node.node_id,
@@ -102,7 +123,10 @@ class TaskCoordinator:
     def advertise(self, view: TaskView, now: float) -> None:
         node_id = self.node.node_id
         kind = Kind.TASK_ANNOUNCE if node_id == view.task.publisher else Kind.TASK_UPDATE
-        self.node.send(kind, now, view.task.payload())
+        payload = view.task.payload()
+        if node_id == view.task.publisher and view.status == Status.CANCELLED:
+            payload["cancelled"] = True
+        self.node.send(kind, now, payload)
         for epoch, round_state in view.rounds.items():
             candidate = round_state.votes.get(node_id)
             if candidate is not None:
@@ -120,6 +144,11 @@ class TaskCoordinator:
             if view.result is not None or now < view.task.starts_at:
                 continue
             task = view.task
+            if task.deadline is not None and now >= task.deadline:
+                view.result = Status.EXPIRED
+                view.owner = None
+                self.transition(view, Status.EXPIRED, now)
+                continue
             epoch = epoch_at(task, now, self.settings)
             if epoch != view.epoch:
                 if view.owner:

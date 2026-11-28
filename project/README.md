@@ -99,3 +99,7 @@ for node_id, node in sim.nodes.items():
 - 本阶段执行动作以节点状态表示。场景层可使用 `node.tasks.finish(task_id, sim.now)` 上报完成，或传 `success=False` 上报明确失败。
 - 后续集成包括 GUI、真实串口帧适配、STM32 联调及真实雷达和视觉驱动。待确认节点地址映射、E22/E34 通信参数、STM32 帧接口和传感器原始数据规范。
 - 实测结果见 [TEST_REPORT.md](TEST_REPORT.md)。
+
+## 第二阶段中文上位机
+
+安装更新后的 requirements.txt 后运行 run.bat。页面说明、软件架构图、协议变化、硬件接入、仿真操作与数据导出见 [上位机操作手册](DASHBOARD.md)。

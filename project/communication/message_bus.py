@@ -18,6 +18,7 @@ class MessageBus:
         for dst in self.receivers:
             if dst == message.src or message.dst not in ("ALL", dst):
                 continue
+            self.record(now, "delivery_attempt", message.src, {"dst": dst, "seq": message.seq})
             result = self.network.enqueue(now, message.src, dst, raw)
             if result != "queued":
                 self.record(now, result, message.src, {"dst": dst, "seq": message.seq})

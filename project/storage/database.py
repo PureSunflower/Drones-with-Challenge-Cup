@@ -8,7 +8,8 @@ from uuid import uuid4
 class Database:
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.connection = sqlite3.connect(path)
+        self.path = path.resolve()
+        self.connection = sqlite3.connect(self.path)
         self.connection.executescript("""
             CREATE TABLE IF NOT EXISTS experiments (
                 run_id TEXT PRIMARY KEY, started_utc TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -50,6 +51,8 @@ class Database:
         self.connection.commit()
 
     def export(self, path: Path, run_id: str) -> None:
+        if path.resolve() == self.path or (path.exists() and path.samefile(self.path)):
+            raise ValueError("CSV destination is the experiment database")
         path.parent.mkdir(parents=True, exist_ok=True)
         rows = self.connection.execute("""
             SELECT e.run_id, x.scenario, x.origin, x.started_utc, e.sim_time, e.event, e.node_id, e.details
